@@ -62,7 +62,7 @@ def _label(parent, text, color=FG2, font=FONT_LABEL, **kw):
 
 
 def _hint(parent, text):
-    """Riga di testo grigio-scuro per istruzioni contestuali."""
+    """Small dark-grey hint line for contextual instructions."""
     tk.Label(parent, text=text, bg=BG, fg=FG3, font=FONT_HINT,
              anchor="w", justify="left").pack(fill="x", padx=20, pady=(0, 4))
 
@@ -90,7 +90,7 @@ class App(tk.Tk):
 
         # ── state ──────────────────────────────
         self.midi_files        = []
-        self.track_assignments = []            # parallelo a midi_files – track per file (merge mode)
+        self.track_assignments = []            # parallel to midi_files - track per file (merge mode)
         self.mode_var          = tk.StringVar(value="split")
         self.track_sel_var     = tk.IntVar(value=0)
         self.out_dir_var       = tk.StringVar(value="")
@@ -136,15 +136,15 @@ class App(tk.Tk):
         help_btn.pack(side="right")
 
     def _build_files_section(self):
-        _section_title(self, "FILE MIDI")
+        _section_title(self, "MIDI FILES")
 
-        # ── Modalità toggle ────────────────────────────────────
+        # -- Mode toggle ───────────────────────────────────
         mode_row = tk.Frame(self, bg=BG)
         mode_row.pack(fill="x", padx=16, pady=(0, 6))
-        tk.Label(mode_row, text="Modalità:", bg=BG, fg=FG2,
+        tk.Label(mode_row, text="Mode:", bg=BG, fg=FG2,
                  font=FONT_LABEL, width=10, anchor="w").pack(side="left")
-        for label, val in [("UN FILE = UN PATTERN", "split"),
-                            ("PIÙ FILE = UN PATTERN", "merge")]:
+        for label, val in [("ONE FILE = ONE PATTERN", "split"),
+                            ("MULTI FILE = ONE PATTERN", "merge")]:
             rb = tk.Radiobutton(
                 mode_row, text=label, variable=self.mode_var, value=val,
                 bg=BG, fg=FG, selectcolor=BG,
@@ -155,7 +155,7 @@ class App(tk.Tk):
             )
             rb.pack(side="left", padx=(0, 6))
 
-        # ── File list + buttons ─────────────────────────────────
+        # -- File list + buttons ───────────────────────────────
         container = tk.Frame(self, bg=BG)
         container.pack(fill="both", padx=16, pady=(0, 4))
 
@@ -183,24 +183,24 @@ class App(tk.Tk):
 
         btn_col = tk.Frame(container, bg=BG)
         btn_col.pack(side="left", padx=(8, 0), anchor="n")
-        self._mk_btn(btn_col, "+ AGGIUNGI", self._add_files).pack(fill="x", pady=(0, 4))
-        self._mk_btn(btn_col, "− RIMUOVI",  self._remove_file).pack(fill="x", pady=(0, 4))
-        self._mk_btn(btn_col, "✕ SVUOTA",   self._clear_files).pack(fill="x")
+        self._mk_btn(btn_col, "+ ADD",    self._add_files).pack(fill="x", pady=(0, 4))
+        self._mk_btn(btn_col, "- REMOVE",  self._remove_file).pack(fill="x", pady=(0, 4))
+        self._mk_btn(btn_col, "x CLEAR",   self._clear_files).pack(fill="x")
 
         # ── Counter ─────────────────────────────────────────────
-        self.files_lbl = tk.Label(self, text="0 file selezionati",
+        self.files_lbl = tk.Label(self, text="0 files selected",
                                   bg=BG, fg=FG3, font=FONT_LOG, anchor="w")
         self.files_lbl.pack(fill="x", padx=20, pady=(2, 0))
 
-        # ── Contenuto dipendente dalla modalità ─────────────────
+        # ── Mode-dependent content ─────────────────────────────
         self.mode_content = tk.Frame(self, bg=BG)
         self.mode_content.pack(fill="x")
 
-        # ── Merge frame (nascosto inizialmente) ─────────────────
+        # ── Merge frame (hidden by default) ─────────────────────
         self.merge_frame = tk.Frame(self.mode_content, bg=BG)
         track_row = tk.Frame(self.merge_frame, bg=BG)
         track_row.pack(fill="x", padx=16, pady=(4, 0))
-        tk.Label(track_row, text="Track file selezionato:", bg=BG, fg=FG2,
+        tk.Label(track_row, text="Track for selected file:", bg=BG, fg=FG2,
                  font=FONT_LABEL, width=22, anchor="w").pack(side="left")
         sp_frame = tk.Frame(track_row, bg=BORDER, padx=1, pady=1)
         sp_frame.pack(side="left")
@@ -210,22 +210,22 @@ class App(tk.Tk):
                    buttonbackground=SURFACE2, font=FONT_MONO,
                    borderwidth=0, highlightthickness=0,
                    ).pack(padx=4, pady=3)
-        self._mk_btn(track_row, "ASSEGNA", self._assign_track_to_selected).pack(
+        self._mk_btn(track_row, "ASSIGN", self._assign_track_to_selected).pack(
             side="left", padx=(6, 0))
         tk.Label(self.merge_frame,
-                 text="  Seleziona un file nella lista, poi cambia la track (0–7) e premi ASSEGNA",
+                 text="  Select a file in the list, change the track (0-7) and press ASSIGN",
                  bg=BG, fg=FG3, font=FONT_HINT, anchor="w").pack(fill="x", padx=20, pady=(2, 0))
         tk.Label(self.merge_frame,
-                 text="  Tutti i file → un solo .mtp  |  max 8 file  |  monophonic per track",
+                 text="  All files → one .mtp  |  max 8 files per pattern  |  monophonic per track",
                  bg=BG, fg=FG3, font=FONT_HINT, anchor="w").pack(fill="x", padx=20, pady=(0, 4))
 
-        # ── Split frame (visibile di default) ───────────────────
+        # ── Split frame (visible by default) ────────────────────
         self.split_frame = tk.Frame(self.mode_content, bg=BG)
         tk.Label(self.split_frame,
-                 text="  Ogni file MIDI diventa un pattern .mtp separato (pattern_01, _02 …)",
+                 text="  Each MIDI file becomes a separate .mtp pattern (pattern_01, _02 ...)",
                  bg=BG, fg=FG3, font=FONT_HINT, anchor="w").pack(fill="x", padx=4, pady=(0, 2))
         tk.Label(self.split_frame,
-                 text="  Accordi: note simultanee vengono distribuite automaticamente su track diverse",
+                 text="  Chords: simultaneous notes are automatically spread across separate tracks",
                  bg=BG, fg=FG3, font=FONT_HINT, anchor="w").pack(fill="x", padx=4, pady=(0, 4))
         self.split_frame.pack(fill="x")
 
@@ -237,7 +237,7 @@ class App(tk.Tk):
         # folder
         row1 = tk.Frame(self, bg=BG)
         row1.pack(fill="x", padx=16, pady=(0, 6))
-        tk.Label(row1, text="Cartella:", bg=BG, fg=FG2,
+        tk.Label(row1, text="Folder:", bg=BG, fg=FG2,
                  font=FONT_LABEL, width=10, anchor="w").pack(side="left")
 
         dir_frame = tk.Frame(row1, bg=BORDER, padx=1, pady=1)
@@ -247,12 +247,12 @@ class App(tk.Tk):
                  font=FONT_MONO, borderwidth=0, highlightthickness=0
                  ).pack(fill="both", padx=4, pady=3)
 
-        self._mk_btn(row1, "SFOGLIA", self._browse_output).pack(side="left", padx=(8, 0))
+        self._mk_btn(row1, "BROWSE", self._browse_output).pack(side="left", padx=(8, 0))
 
         # filename pattern + index
         row2 = tk.Frame(self, bg=BG)
         row2.pack(fill="x", padx=16, pady=(0, 4))
-        tk.Label(row2, text="Nome file:", bg=BG, fg=FG2,
+        tk.Label(row2, text="Filename:", bg=BG, fg=FG2,
                  font=FONT_LABEL, width=10, anchor="w").pack(side="left")
         tk.Label(row2, text="pattern_", bg=BG, fg=FG, font=FONT_MONO).pack(side="left")
 
@@ -265,17 +265,17 @@ class App(tk.Tk):
                    format="%02.0f",
                    ).pack(padx=4, pady=3)
 
-        tk.Label(row2, text=".mtp  (incrementato per ogni file)",
+        tk.Label(row2, text=".mtp  (auto-incremented per file)",
                  bg=BG, fg=FG3, font=FONT_SUB).pack(side="left", padx=(4, 0))
-        _hint(self, "Percorso SD card:  /projects/<nome_progetto>/patterns/pattern_NN.mtp")
+        _hint(self, "SD card path:  /projects/<project_name>/patterns/pattern_NN.mtp")
 
     def _build_options_section(self):
-        _section_title(self, "OPZIONI")
+        _section_title(self, "OPTIONS")
 
         # Resolution
         row1 = tk.Frame(self, bg=BG)
         row1.pack(fill="x", padx=16, pady=(0, 8))
-        tk.Label(row1, text="Risoluzione:", bg=BG, fg=FG2,
+        tk.Label(row1, text="Resolution:", bg=BG, fg=FG2,
                  font=FONT_LABEL, width=13, anchor="w").pack(side="left")
 
         for label, val in [("1/16", 16), ("1/8", 8), ("1/4", 4)]:
@@ -292,12 +292,12 @@ class App(tk.Tk):
             rb.pack(side="left", padx=(0, 6))
         self._radio_btns_res = row1.winfo_children()[1:]
         self._update_radio_styles()
-        _hint(self, "1/16 = passo minimo 1/16  |  1/8 = 1/8  |  1/4 = una nota per beat")
+        _hint(self, "1/16 = finest step  |  1/8 = eighth note steps  |  1/4 = one note per beat")
 
         # Instrument
         row2 = tk.Frame(self, bg=BG)
         row2.pack(fill="x", padx=16, pady=(6, 0))
-        tk.Label(row2, text="Strumento:", bg=BG, fg=FG2,
+        tk.Label(row2, text="Instrument:", bg=BG, fg=FG2,
                  font=FONT_LABEL, width=13, anchor="w").pack(side="left")
 
         sp_frame = tk.Frame(row2, bg=BORDER, padx=1, pady=1)
@@ -309,7 +309,7 @@ class App(tk.Tk):
                    format="%02.0f",
                    ).pack(padx=4, pady=3)
         tk.Label(row2, text="(0 – 47)", bg=BG, fg=FG3, font=FONT_SUB).pack(side="left", padx=6)
-        _hint(self, "Slot strumento che verrà assegnato a tutte le note del pattern")
+        _hint(self, "Instrument slot assigned to all notes in the pattern (0 = first instrument)")
 
     def _build_convert_btn(self):
         frame = tk.Frame(self, bg=BG)
@@ -317,7 +317,7 @@ class App(tk.Tk):
 
         self.conv_btn = tk.Button(
             frame,
-            text="▶  CONVERTI",
+            text="▶  CONVERT",
             font=FONT_CONV,
             bg=ACCENT, fg=BG,
             activebackground=ACCENT_H, activeforeground=BG,
@@ -365,28 +365,28 @@ class App(tk.Tk):
 
     def _show_welcome(self):
         lines = [
-            ("MIDI → MTP  |  Guida rapida", "head"),
+            ("MIDI → MTP  |  Quick start", "head"),
             ("─" * 52, "dim"),
             ("", None),
-            ("1. Aggiungi uno o più file .mid con + AGGIUNGI", "info"),
-            ("2. Scegli la cartella di output con SFOGLIA", "info"),
-            ("   → Ideale: /projects/<nome>/patterns/ sulla SD card", "dim"),
-            ("3. Imposta l'indice di partenza (es. 01 → pattern_01.mtp)", "info"),
-            ("4. Scegli la risoluzione e lo strumento", "info"),
-            ("5. Premi CONVERTI", "info"),
+            ("1. Add one or more .mid files with + ADD", "info"),
+            ("2. Choose the output folder with BROWSE", "info"),
+            ("   → Recommended: /projects/<name>/patterns/ on the SD card", "dim"),
+            ("3. Set the starting index (e.g. 01 → pattern_01.mtp)", "info"),
+            ("4. Choose resolution and instrument slot", "info"),
+            ("5. Press CONVERT", "info"),
             ("", None),
             ("─" * 52, "dim"),
-            ("ACCORDI – come funziona il chord spreading:", "acc"),
-            ("  Note suonate insieme nello stesso step vengono", "info"),
-            ("  distribuite su track consecutive del tracker,", "info"),
-            ("  esattamente come fa il firmware Polyend via MIDI IN.", "info"),
+            ("CHORDS – how chord spreading works:", "acc"),
+            ("  Notes played simultaneously on the same step are", "info"),
+            ("  distributed across consecutive tracker tracks,", "info"),
+            ("  matching the Polyend Tracker firmware behaviour.", "info"),
             ("", None),
-            ("  Es: C4 + E4 + G4 allo step 0:", "dim"),
-            ("    track 0 → G4  (voce più alta)", "ok"),
+            ("  Example: C4 + E4 + G4 on step 0:", "dim"),
+            ("    track 0 → G4  (highest voice)", "ok"),
             ("    track 1 → E4", "ok"),
-            ("    track 2 → C4  (voce più bassa)", "ok"),
+            ("    track 2 → C4  (lowest voice)", "ok"),
             ("", None),
-            ("  Polifonia massima: 11 voci (11 track disponibili)", "dim"),
+            ("  Max polyphony: 11 voices (11 tracks available)", "dim"),
             ("─" * 52, "dim"),
         ]
         for text, tag in lines:
@@ -394,24 +394,24 @@ class App(tk.Tk):
 
     def _open_help(self):
         win = tk.Toplevel(self)
-        win.title("Guida")
+        win.title("Help")
         win.configure(bg=BG)
         win.resizable(False, False)
         win.grab_set()
 
-        # Centra rispetto alla finestra principale
+        # Center relative to main window
         self.update_idletasks()
         px, py = self.winfo_x(), self.winfo_y()
         pw, ph = self.winfo_width(), self.winfo_height()
         w, h = 560, 540
         win.geometry(f"{w}x{h}+{px + (pw - w)//2}+{py + (ph - h)//2}")
 
-        # Titolo
-        tk.Label(win, text="MIDI → MTP  |  Guida", bg=BG, fg=ACCENT,
+        # Title
+        tk.Label(win, text="MIDI \u2192 MTP  |  Help", bg=BG, fg=ACCENT,
                  font=("Courier", 14, "bold")).pack(padx=20, pady=(16, 4), anchor="w")
         tk.Frame(win, bg=LINE, height=1).pack(fill="x", padx=16, pady=(0, 10))
 
-        # Testo scrollabile
+        # Scrollable text
         frame = tk.Frame(win, bg=BORDER, padx=1, pady=1)
         frame.pack(fill="both", expand=True, padx=16, pady=(0, 10))
         inner = tk.Frame(frame, bg=SURFACE)
@@ -434,53 +434,53 @@ class App(tk.Tk):
         txt.tag_config("body", foreground=FG)
 
         HELP_TEXT = [
-            ("FLUSSO DI LAVORO\n", "h"),
-            ("1. Aggiungi i file .mid con + AGGIUNGI (anche multipli).\n", "body"),
-            ("2. Scegli la cartella di output con SFOGLIA.\n", "body"),
-            ("   Percorso SD card consigliato:\n", "dim"),
-            ("   /projects/<nome_progetto>/patterns/\n", "ok"),
-            ("3. Imposta l'Indice di partenza (es. 01).\n", "body"),
-            ("   Ogni file viene salvato come pattern_NN.mtp\n", "dim"),
-            ("   con NN che si incrementa automaticamente.\n", "dim"),
-            ("4. Scegli Risoluzione e Strumento.\n", "body"),
-            ("5. Premi CONVERTI.\n", "body"),
+            ("WORKFLOW\n", "h"),
+            ("1. Add .mid files with + ADD (multiple selection supported).\n", "body"),
+            ("2. Choose the output folder with BROWSE.\n", "body"),
+            ("   Recommended SD card path:\n", "dim"),
+            ("   /projects/<project_name>/patterns/\n", "ok"),
+            ("3. Set the starting index (e.g. 01).\n", "body"),
+            ("   Each file is saved as pattern_NN.mtp\n", "dim"),
+            ("   with NN auto-incremented for each file.\n", "dim"),
+            ("4. Choose Resolution and Instrument.\n", "body"),
+            ("5. Press CONVERT.\n", "body"),
             ("\n", None),
-            ("RISOLUZIONE\n", "h"),
-            ("Definisce il passo minimo di quantizzazione delle note:\n", "body"),
-            ("  1/16  →  passo minimo = una semicroma  (default)\n", "ok"),
-            ("  1/8   →  passo minimo = una croma\n", "body"),
-            ("  1/4   →  passo minimo = un quarto (quarter note)\n", "body"),
-            ("Usa 1/16 per la maggior parte dei file MIDI.\n", "dim"),
+            ("RESOLUTION\n", "h"),
+            ("Sets the minimum quantization step for notes:\n", "body"),
+            ("  1/16  →  minimum step = sixteenth note  (default)\n", "ok"),
+            ("  1/8   →  minimum step = eighth note\n", "body"),
+            ("  1/4   →  minimum step = quarter note\n", "body"),
+            ("Use 1/16 for most MIDI files.\n", "dim"),
             ("\n", None),
-            ("STRUMENTO\n", "h"),
-            ("Slot strumento (0–47) assegnato a tutte le note.\n", "body"),
-            ("Corrisponde agli strumenti caricati nel progetto\n", "body"),
-            ("sul Polyend Tracker (slot 0 = primo strumento).\n", "dim"),
+            ("INSTRUMENT\n", "h"),
+            ("Instrument slot (0-47) assigned to all notes.\n", "body"),
+            ("Corresponds to instruments loaded in the project\n", "body"),
+            ("on the Polyend Tracker (slot 0 = first instrument).\n", "dim"),
             ("\n", None),
-            ("ACCORDI – CHORD SPREADING\n", "h"),
-            ("Quando più note vanno allo stesso step,\n", "body"),
-            ("vengono distribuite su track consecutive,\n", "body"),
-            ("esattamente come fa il firmware Polyend\n", "body"),
-            ("quando riceve un accordo via MIDI IN.\n", "body"),
+            ("CHORDS – CHORD SPREADING\n", "h"),
+            ("When multiple notes land on the same step,\n", "body"),
+            ("they are spread across consecutive tracks,\n", "body"),
+            ("matching the Polyend Tracker firmware behaviour\n", "body"),
+            ("when receiving chords via MIDI IN.\n", "body"),
             ("\n", None),
-            ("Esempio – Do maggiore (C4+E4+G4) allo step 0:\n", "dim"),
-            ("  Track 0, step 0  →  G4  (voce più alta)\n", "ok"),
+            ("Example – C major chord (C4+E4+G4) on step 0:\n", "dim"),
+            ("  Track 0, step 0  →  G4  (highest voice)\n", "ok"),
             ("  Track 1, step 0  →  E4\n", "ok"),
-            ("  Track 2, step 0  →  C4  (voce più bassa)\n", "ok"),
+            ("  Track 2, step 0  →  C4  (lowest voice)\n", "ok"),
             ("\n", None),
-            ("Polifonia massima: 11 voci simultanee.\n", "body"),
-            ("Note in eccesso vengono scartate (segnalate nel log).\n", "warn"),
+            ("Maximum polyphony: 11 simultaneous voices.\n", "body"),
+            ("Excess notes are discarded (reported in the log).\n", "warn"),
             ("\n", None),
-            ("TIPI DI FILE MIDI\n", "h"),
+            ("MIDI FILE TYPES\n", "h"),
             ("Type 0 (single track):\n", "body"),
-            ("  Ogni canale MIDI = sorgente separata per il\n", "dim"),
-            ("  chord spreading (ch 0, ch 1, … trattati distinti).\n", "dim"),
+            ("  Each MIDI channel = separate source for\n", "dim"),
+            ("  chord spreading (ch 0, ch 1, ... treated independently).\n", "dim"),
             ("Type 1 (multi track):\n", "body"),
-            ("  Ogni MIDI track = sorgente separata.\n", "dim"),
+            ("  Each MIDI track = separate source.\n", "dim"),
             ("\n", None),
-            ("LUNGHEZZA PATTERN\n", "h"),
-            ("Calcolata automaticamente, arrotondata al multiplo\n", "body"),
-            ("di 16 step successivo: 16, 32, 64, 128 (max).\n", "dim"),
+            ("PATTERN LENGTH\n", "h"),
+            ("Calculated automatically and rounded up to the\n", "body"),
+            ("nearest multiple of 16: 16, 32, 64, 128 (max).\n", "dim"),
         ]
 
         txt.config(state="normal")
@@ -488,9 +488,9 @@ class App(tk.Tk):
             txt.insert("end", text, tag or "body")
         txt.config(state="disabled")
 
-        # Pulsante chiudi
+        # Close button
         tk.Button(
-            win, text="CHIUDI",
+            win, text="CLOSE",
             bg=SURFACE2, fg=FG2,
             activebackground=SURFACE, activeforeground=ACCENT,
             relief="flat", borderwidth=0, padx=20, pady=8,
@@ -513,23 +513,23 @@ class App(tk.Tk):
 
     def _add_files(self):
         paths = filedialog.askopenfilenames(
-            title="Scegli file MIDI",
+            title="Choose MIDI files",
             filetypes=[("MIDI files", "*.mid *.midi"), ("All files", "*")],
         )
         merge  = self.mode_var.get() == "merge"
         added  = 0
         for p in paths:
             if p not in self.midi_files:
-                # in merge mode: track 0-7, poi si ricomincia da 0 nel pattern successivo
+                # in merge mode: track 0-7, then wraps to next pattern
                 auto_track = len(self.midi_files) % MERGE_TRACK_MAX
                 self.midi_files.append(p)
                 self.track_assignments.append(auto_track)
                 added += 1
         if added:
-            self._log(f"Aggiunti {added} file.", tag="acc")
+            self._log(f"Added {added} file(s).", tag="acc")
             if merge:
                 n_patterns = (len(self.midi_files) + MERGE_TRACK_MAX - 1) // MERGE_TRACK_MAX
-                self._log(f"  → {len(self.midi_files)} file su {n_patterns} pattern", tag="info")
+                self._log(f"  \u2192 {len(self.midi_files)} files across {n_patterns} pattern(s)", tag="info")
         self._refresh_listbox()
         self._update_files_label()
 
@@ -539,7 +539,7 @@ class App(tk.Tk):
             removed = self.midi_files.pop(i)
             if i < len(self.track_assignments):
                 self.track_assignments.pop(i)
-            self._log(f"Rimosso: {Path(removed).name}", tag="dim")
+            self._log(f"Removed: {Path(removed).name}", tag="dim")
         self._refresh_listbox()
         self._update_files_label()
 
@@ -548,21 +548,21 @@ class App(tk.Tk):
         self.track_assignments.clear()
         self.file_list.delete(0, "end")
         self._update_files_label()
-        self._log("Lista svuotata.", tag="dim")
+        self._log("File list cleared.", tag="dim")
 
-    # ── Mode helpers ────────────────────────────────────────────
+    # -- Mode helpers ────────────────────────────────────────────
 
     def _on_mode_change(self):
         mode = self.mode_var.get()
         if mode == "merge":
             self.split_frame.pack_forget()
             self.merge_frame.pack(fill="x")
-            self._log("Modalità UNIFICA: tutti i file → un solo pattern .mtp", tag="acc")
-            self._log("  Assegna ogni file a una track (0–7) con il selettore.", tag="info")
+            self._log("Mode MERGE: all files \u2192 one .mtp pattern", tag="acc")
+            self._log("  Assign each file to a track (0-7) using the selector.", tag="info")
         else:
             self.merge_frame.pack_forget()
             self.split_frame.pack(fill="x")
-            self._log("Modalità SEPARATA: ogni file MIDI → pattern .mtp distinto", tag="acc")
+            self._log("Mode SEPARATE: each MIDI file \u2192 individual .mtp pattern", tag="acc")
         self._refresh_listbox()
         self._style_radio_buttons(self)
 
@@ -580,8 +580,8 @@ class App(tk.Tk):
         self.file_list.delete(0, "end")
         for i, p in enumerate(self.midi_files):
             if merge:
-                p_idx = i // MERGE_TRACK_MAX  # pattern di destinazione
-                t_idx = i % MERGE_TRACK_MAX   # track dentro quel pattern
+                p_idx = i // MERGE_TRACK_MAX  # destination pattern
+                t_idx = i % MERGE_TRACK_MAX   # track within that pattern
                 self.file_list.insert("end", f" [P{p_idx} T{t_idx}]  {Path(p).name}")
             else:
                 self.file_list.insert("end", f" {Path(p).name}")
@@ -589,7 +589,7 @@ class App(tk.Tk):
     def _assign_track_to_selected(self):
         sel = self.file_list.curselection()
         if not sel:
-            self._log("  Seleziona prima un file dalla lista.", tag="dim")
+            self._log("  Select a file from the list first.", tag="dim")
             return
         new_track = self.track_sel_var.get()
         idx = sel[0]
@@ -597,10 +597,10 @@ class App(tk.Tk):
         self._refresh_listbox()
         self.file_list.selection_set(idx)
         fname = Path(self.midi_files[idx]).name
-        self._log(f"  {fname}  →  Track {new_track}", tag="acc")
+        self._log(f"  {fname}  \u2192  Track {new_track}", tag="acc")
 
     def _browse_output(self):
-        d = filedialog.askdirectory(title="Scegli cartella di output")
+        d = filedialog.askdirectory(title="Choose output folder")
         if d:
             self.out_dir_var.set(d)
             self._log(f"Output → {d}", tag="acc")
@@ -611,7 +611,7 @@ class App(tk.Tk):
 
     def _update_radio_styles(self):
         frame = self.winfo_children()
-        # scan all radio buttons in the options section and re-color
+        # scan all radio buttons and re-color based on current selection
         self._style_radio_buttons(self)
 
     def _style_radio_buttons(self, parent):
@@ -629,7 +629,7 @@ class App(tk.Tk):
     def _update_files_label(self):
         n = len(self.midi_files)
         self.files_lbl.config(
-            text=f"{n} file selezionat{'o' if n == 1 else 'i'}",
+            text=f"{n} file{'s' if n != 1 else ''} selected",
             fg=ACCENT if n > 0 else FG3,
         )
 
@@ -640,25 +640,25 @@ class App(tk.Tk):
             return
 
         if mido is None:
-            messagebox.showerror("Errore", "Libreria 'mido' non installata.\n\npip install mido")
+            messagebox.showerror("Error", "Library 'mido' is not installed.\n\npip install mido")
             return
 
         if not self.midi_files:
-            messagebox.showwarning("Nessun file", "Aggiungi almeno un file MIDI.")
+            messagebox.showwarning("No files", "Add at least one MIDI file.")
             return
 
         out_dir = self.out_dir_var.get().strip()
         if not out_dir:
-            messagebox.showwarning("Cartella mancante", "Seleziona la cartella di output.")
+            messagebox.showwarning("Missing folder", "Select the output folder.")
             return
 
         out_path = Path(out_dir)
         if not out_path.exists():
-            messagebox.showerror("Errore", f"La cartella non esiste:\n{out_dir}")
+            messagebox.showerror("Error", f"Folder does not exist:\n{out_dir}")
             return
 
         self.converting = True
-        self.conv_btn.config(state="disabled", bg=ACCENT_D, text="◌  Conversione in corso…")
+        self.conv_btn.config(state="disabled", bg=ACCENT_D, text="\u25cc  Converting\u2026")
         self.progress_lbl.config(text="")
 
         threading.Thread(target=self._convert_thread, daemon=True).start()
@@ -677,7 +677,7 @@ class App(tk.Tk):
 
         ok_count  = 0
         err_count = 0
-        self._log(f"\n── Conversione {len(self.midi_files)} file ──────────────────", tag="acc")
+        self._log(f"\n── Converting {len(self.midi_files)} file(s) ──────────────────", tag="acc")
 
         for i, midi_path in enumerate(self.midi_files):
             pattern_idx  = start_idx + i
@@ -700,7 +700,7 @@ class App(tk.Tk):
                     for s in td.get("steps", [])
                 ))
                 self._log(
-                    f"  ✓  {fname}  →  {output_name}  ({pattern_length} step, {used} track)",
+                    f"  \u2713  {fname}  \u2192  {output_name}  ({pattern_length} steps, {used} tracks)",
                     tag="ok",
                 )
                 ok_count += 1
@@ -709,7 +709,7 @@ class App(tk.Tk):
                 err_count += 1
 
         self._log(
-            f"\n── Fine: {ok_count} OK  |  {err_count} errori ──────────────",
+            f"\n── Done: {ok_count} OK  |  {err_count} error(s) ──────────────",
             tag="acc" if err_count == 0 else "err",
         )
         self._finish_convert(ok_count, err_count)
@@ -719,16 +719,16 @@ class App(tk.Tk):
         n_patterns  = (n_files + MERGE_TRACK_MAX - 1) // MERGE_TRACK_MAX
 
         self._log(
-            f"\n── UNIFICA {n_files} file → {n_patterns} pattern ──────────────",
+            f"\n── MERGE {n_files} file(s) → {n_patterns} pattern(s) ──────────────",
             tag="acc",
         )
 
-        # Fase 1: carica tutti i MIDI
+        # Phase 1: load all MIDI files
         loaded = []  # list of (mido.MidiFile | None, fname)
         load_err = 0
         for i, midi_path in enumerate(self.midi_files):
             fname = Path(midi_path).name
-            self._set_progress(f"Carico {i+1}/{n_files}  {fname}")
+            self._set_progress(f"Loading {i+1}/{n_files}  {fname}")
             try:
                 mid = mido.MidiFile(str(midi_path))
                 loaded.append((mid, fname))
@@ -738,9 +738,9 @@ class App(tk.Tk):
                 load_err += 1
 
         if load_err:
-            self._log(f"  {load_err} file non caricati — continua con gli altri.", tag="err")
+            self._log(f"  {load_err} file(s) could not be loaded \u2014 continuing with the rest.", tag="err")
 
-        # Fase 2: scrivi un pattern per ogni chunk da MERGE_TRACK_MAX file
+        # Phase 2: write one pattern per chunk of MERGE_TRACK_MAX files
         ok_patterns  = 0
         err_patterns = 0
 
@@ -751,9 +751,9 @@ class App(tk.Tk):
             output_name = f"pattern_{pat_idx:02d}.mtp"
             output_file = out_path / output_name
 
-            self._log(f"\n  Pattern {pat_idx:02d} ({len(chunk)} tracce):", tag="acc")
+            self._log(f"\n  Pattern {pat_idx:02d} ({len(chunk)} track(s)):", tag="acc")
 
-            # rimappa le track 0..len(chunk)-1, salta i None
+            # remap to local tracks 0..len(chunk)-1, skip None entries
             assignments = []
             for local_track, (mid, fname) in enumerate(chunk):
                 if mid is not None:
@@ -763,12 +763,12 @@ class App(tk.Tk):
                     self._log(f"    ✗  {fname}  (skipped)", tag="err")
 
             if not assignments:
-                self._log(f"    Nessun file valido in questo chunk, pattern saltato.", tag="err")
+                self._log(f"    No valid files in this chunk, pattern skipped.", tag="err")
                 err_patterns += 1
                 continue
 
             try:
-                self._set_progress(f"Pattern {pat_idx:02d} – merging {len(assignments)} file…")
+                self._set_progress(f"Pattern {pat_idx:02d} \u2013 merging {len(assignments)} file(s)\u2026")
                 tracks_data, pattern_length = merge_midi_files_to_tracks(
                     assignments,
                     steps_per_beat=steps_per_beat,
@@ -781,16 +781,16 @@ class App(tk.Tk):
                     for s in td.get("steps", [])
                 ))
                 self._log(
-                    f"    ✓  Salvato: {output_name}  ({pattern_length} step, {used} track usate)",
+                    f"    \u2713  Saved: {output_name}  ({pattern_length} steps, {used} track(s) used)",
                     tag="ok",
                 )
                 ok_patterns += 1
             except Exception as e:
-                self._log(f"    ✗  Errore: {e}", tag="err")
+                self._log(f"    \u2717  Error: {e}", tag="err")
                 err_patterns += 1
 
         self._log(
-            f"\n── Fine: {ok_patterns} pattern OK  |  {err_patterns} errori ──",
+            f"\n\u2500\u2500 Done: {ok_patterns} pattern(s) OK  |  {err_patterns} error(s) \u2500\u2500",
             tag="acc" if err_patterns == 0 else "err",
         )
         self._finish_convert(ok_patterns, err_patterns)
@@ -798,15 +798,15 @@ class App(tk.Tk):
     def _finish_convert(self, ok, err):
         def _ui():
             self.converting = False
-            self.conv_btn.config(state="normal", bg=ACCENT, text="▶  CONVERTI")
+            self.conv_btn.config(state="normal", bg=ACCENT, text="\u25b6  CONVERT")
             if err == 0:
                 self.progress_lbl.config(
-                    text=f"Completato: {ok} file convertiti con successo.",
+                    text=f"Done: {ok} file(s) converted successfully.",
                     fg=OK,
                 )
             else:
                 self.progress_lbl.config(
-                    text=f"Completato con errori: {ok} OK  /  {err} falliti.",
+                    text=f"Completed with errors: {ok} OK  /  {err} failed.",
                     fg=ERR,
                 )
         self.after(0, _ui)
@@ -829,7 +829,7 @@ class App(tk.Tk):
 
 def main():
     app = App()
-    # Centro la finestra
+    # Center the window on screen
     app.update_idletasks()
     w, h = 580, 740
     sx = (app.winfo_screenwidth()  - w) // 2
