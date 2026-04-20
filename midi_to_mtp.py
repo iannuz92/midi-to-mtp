@@ -5,8 +5,7 @@ MIDI to MTP converter for Polyend Tracker
 Converts MIDI files (.mid) into Polyend Tracker pattern files (.mtp).
 
 The .mtp binary format has been reverse-engineered by analyzing pattern files
-generated and read by the Polyend Tracker hardware. No proprietary source code
-was used or is distributed in this project.
+generated and read by the Polyend Tracker hardware. 
 
 .mtp binary layout (8492 bytes, little-endian, ARM Cortex-M7 natural alignment):
 
