@@ -1,0 +1,3 @@
+mido>=1.3.0
+# tkinter è built-in in python3.13 (brew install python-tk@3.13)
+# Crea l'ambiente con: python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
