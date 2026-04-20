@@ -3,8 +3,7 @@
 A tool to convert MIDI files into Polyend Tracker pattern files (.mtp).
 
 The .mtp binary format has been reverse-engineered by analyzing pattern files
-generated and loaded by the Polyend Tracker hardware. No proprietary source
-code is used or distributed in this project.
+generated and loaded by the Polyend Tracker hardware.
 
 ---
 
