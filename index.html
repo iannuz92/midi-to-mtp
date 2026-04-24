@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIDI → MTP | Polyend Tracker</title>
+<style>
+  :root {
+    --bg:       #2C2C2C;
+    --surface:  #363636;
+    --surface2: #404040;
+    --border:   #505050;
+    --line:     #4A4A4A;
+    --accent:   #FF8C1A;
+    --accent-h: #FFAA44;
+    --accent-d: #7A4000;
+    --fg:       #F0F0F0;
+    --fg2:      #BBBBBB;
+    --fg3:      #888888;
+    --ok:       #66DD99;
+    --err:      #FF5566;
+    --sel-bg:   #4A2A00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 13px;
+  }
+
+  /* ── Full-screen app shell ──────────────────── */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header (always full width, fixed) ─────── */
+  .app-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px 12px;
+  }
+  .header-title { color: var(--accent); font-size: 22px; font-weight: bold; }
+  .header-sub   { color: var(--fg3); font-size: 10px; }
+  .help-btn {
+    margin-left: auto;
+    background: var(--surface2); color: var(--fg2);
+    border: none; padding: 5px 12px; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: bold;
+  }
+  .help-btn:hover { color: var(--accent); }
+
+  /* ── Two-column main grid ───────────────────── */
+  .main-grid {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ── Left panel: controls ───────────────────── */
+  .left-panel {
+    flex: 0 0 460px;
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .left-panel::-webkit-scrollbar { width: 6px; }
+  .left-panel::-webkit-scrollbar-track { background: var(--bg); }
+  .left-panel::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* ── Right panel: log ───────────────────────── */
+  .right-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .log-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0 16px 16px;
+  }
+  .log-box {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    overflow-y: auto;
+    font-size: 11px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-height: 0;
+  }
+  .log-box::-webkit-scrollbar { width: 8px; }
+  .log-box::-webkit-scrollbar-track { background: var(--surface); }
+  .log-box::-webkit-scrollbar-thumb { background: var(--accent-d); }
+  .log-ok   { color: var(--ok); }
+  .log-err  { color: var(--err); }
+  .log-acc  { color: var(--accent); }
+  .log-dim  { color: var(--fg3); }
+  .log-info { color: var(--fg2); }
+
+  /* ── Separator ──────────────────────────────── */
+  .sep { height: 1px; background: var(--line); margin: 8px 16px; }
+
+  /* ── Section title ──────────────────────────── */
+  .section-title {
+    padding: 12px 16px 4px;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  /* ── Rows ───────────────────────────────────── */
+  .row { display: flex; align-items: center; gap: 8px; padding: 0 16px 6px; flex-wrap: wrap; }
+  .row-label      { color: var(--fg2); width: 100px; flex-shrink: 0; }
+  .row-label-wide { color: var(--fg2); width: 160px; flex-shrink: 0; }
+  .hint {
+    color: var(--fg3); font-size: 10px;
+    padding: 0 20px 4px; line-height: 1.6;
+  }
+
+  /* ── File list ──────────────────────────────── */
+  .file-list-wrapper { display: flex; gap: 8px; padding: 0 16px 4px; }
+  .file-list-box {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    min-height: 120px; max-height: 180px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .file-list-box::-webkit-scrollbar { width: 8px; }
+  .file-list-box::-webkit-scrollbar-track { background: var(--surface); }
+  .file-list-box::-webkit-scrollbar-thumb { background: var(--accent-d); }
+  .file-item {
+    padding: 3px 6px; cursor: pointer; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; color: var(--fg);
+    font-size: 11px;
+  }
+  .file-item:hover   { background: var(--sel-bg); }
+  .file-item.selected { background: var(--sel-bg); color: var(--accent); }
+  .btn-col { display: flex; flex-direction: column; gap: 4px; align-self: flex-start; }
+
+  /* ── Buttons ────────────────────────────────── */
+  .btn {
+    background: var(--surface2); color: var(--fg2);
+    border: none; padding: 5px 10px; cursor: pointer;
+    font-family: inherit; font-size: 11px; white-space: nowrap;
+  }
+  .btn:hover  { color: var(--accent); }
+  .btn:active { background: var(--accent-d); }
+  .btn-primary {
+    background: var(--accent); color: var(--bg);
+    border: none; padding: 14px 20px; cursor: pointer;
+    font-family: inherit; font-size: 16px; font-weight: bold;
+    width: 100%; display: block;
+  }
+  .btn-primary:hover    { background: var(--accent-h); }
+  .btn-primary:disabled { background: var(--accent-d); cursor: default; }
+
+  /* ── Mode toggle ────────────────────────────── */
+  .mode-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mode-btn {
+    background: var(--surface2); color: var(--fg2);
+    border: none; padding: 4px 10px; cursor: pointer;
+    font-family: inherit; font-size: 10px;
+  }
+  .mode-btn.active { background: var(--accent-d); color: var(--accent); }
+  .mode-btn:hover:not(.active) { color: var(--fg); }
+
+  /* ── Radio-like buttons ─────────────────────── */
+  .radio-group { display: flex; gap: 6px; }
+  .radio-btn {
+    background: var(--surface2); color: var(--fg2);
+    border: none; padding: 4px 12px; cursor: pointer;
+    font-family: inherit; font-size: 12px;
+  }
+  .radio-btn.active { background: var(--accent-d); color: var(--accent); }
+  .radio-btn:hover:not(.active) { color: var(--fg); }
+
+  /* ── Inputs ─────────────────────────────────── */
+  input[type="number"], input[type="text"] {
+    background: var(--surface); color: var(--accent);
+    border: 1px solid var(--border); padding: 4px 8px;
+    font-family: inherit; font-size: 12px; width: 60px;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
+
+  /* ── Misc ───────────────────────────────────── */
+  .files-count { color: var(--fg3); font-size: 11px; padding: 2px 20px 0; }
+  #merge-row { display: none; padding: 4px 16px; }
+  .convert-section { padding: 4px 16px 8px; }
+  .progress-lbl { text-align: center; color: var(--fg2); font-size: 11px; margin-top: 6px; min-height: 16px; }
+
+  /* ── Modal ──────────────────────────────────── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg); border: 1px solid var(--border);
+    width: 560px; max-width: 95vw; max-height: 85vh;
+    display: flex; flex-direction: column;
+  }
+  .modal-header {
+    padding: 16px 20px 8px;
+    color: var(--accent); font-size: 15px; font-weight: bold;
+    border-bottom: 1px solid var(--line);
+  }
+  .modal-body {
+    flex: 1; overflow-y: auto; padding: 12px 20px;
+    font-size: 12px; line-height: 1.8; color: var(--fg);
+  }
+  .modal-body::-webkit-scrollbar { width: 8px; }
+  .modal-body::-webkit-scrollbar-track { background: var(--surface); }
+  .modal-body::-webkit-scrollbar-thumb { background: var(--accent-d); }
+  .modal-footer { padding: 10px 20px 16px; text-align: right; }
+  .mh   { color: var(--accent); font-weight: bold; }
+  .mok  { color: var(--ok); }
+  .mdim { color: var(--fg3); }
+
+  /* ── Hidden download anchor ─────────────────── */
+  #dl-link { display: none; }
+
+  /* ── Responsive: mobile ─────────────────────── */
+  @media (max-width: 767px) {
+    html, body { overflow: auto; height: auto; }
+    .app { height: auto; overflow: visible; }
+    .main-grid { flex-direction: column; overflow: visible; }
+    .left-panel { flex: none; border-right: none; border-bottom: 1px solid var(--line); overflow: visible; }
+    .right-panel { height: 340px; }
+    .log-container { padding: 0 12px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header (full width) -->
+  <div class="app-header">
+    <div class="header">
+      <span class="header-title">MIDI → MTP</span>
+      <span class="header-sub">Polyend Tracker Pattern Converter</span>
+      <button class="help-btn" onclick="openHelp()">?</button>
+    </div>
+  </div>
+
+  <!-- Main two-column grid -->
+  <div class="main-grid">
+
+    <!-- LEFT: all controls -->
+    <div class="left-panel">
+
+      <div class="sep"></div>
+
+      <!-- MIDI Files -->
+      <div class="section-title">▸ MIDI FILES</div>
+      <div class="row">
+        <span class="row-label">Mode:</span>
+        <div class="mode-group">
+          <button class="mode-btn active" id="btn-split" onclick="setMode('split')">ONE FILE = ONE PATTERN</button>
+          <button class="mode-btn"        id="btn-merge" onclick="setMode('merge')">MULTI FILE = ONE PATTERN</button>
+        </div>
+      </div>
+      <div class="file-list-wrapper">
+        <div class="file-list-box" id="file-list-box" ondragover="event.preventDefault()" ondrop="handleDrop(event)"></div>
+        <div class="btn-col">
+          <button class="btn" onclick="addFiles()">+ ADD</button>
+          <button class="btn" onclick="removeFile()">- REMOVE</button>
+          <button class="btn" onclick="clearFiles()">x CLEAR</button>
+        </div>
+      </div>
+      <div class="files-count" id="files-count">0 files selected</div>
+
+      <!-- Merge-specific row -->
+      <div id="merge-row" class="row">
+        <span class="row-label-wide">Track for selected file:</span>
+        <input type="number" id="track-sel" min="0" max="7" value="0" style="width:50px">
+        <button class="btn" onclick="assignTrack()">ASSIGN</button>
+      </div>
+      <div class="hint" id="mode-hint">  Each MIDI file becomes a separate .mtp pattern (pattern_01, _02 ...)<br>
+      Chords: simultaneous notes are automatically spread across separate tracks</div>
+
+      <div class="sep"></div>
+
+      <!-- Output -->
+      <div class="section-title">▸ OUTPUT</div>
+      <div class="hint" style="padding-bottom:6px;color:var(--fg2)">
+        Files are downloaded directly to your browser's Downloads folder.<br>
+        Then copy to SD card: <span style="color:var(--ok)">/projects/&lt;name&gt;/patterns/</span>
+      </div>
+      <div class="row">
+        <span class="row-label">Filename:</span>
+        <span style="color:var(--fg)">pattern_</span>
+        <input type="number" id="start-index" min="1" max="255" value="1" style="width:55px">
+        <span style="color:var(--fg3); font-size:10px">.mtp  (auto-incremented per file)</span>
+      </div>
+      <div class="hint">SD card path:  /projects/&lt;project_name&gt;/patterns/pattern_NN.mtp</div>
+
+      <div class="sep"></div>
+
+      <!-- Options -->
+      <div class="section-title">▸ OPTIONS</div>
+      <div class="row">
+        <span class="row-label">Resolution:</span>
+        <div class="radio-group">
+          <button class="radio-btn active" data-res="16" onclick="setRes(16)">1/16</button>
+          <button class="radio-btn"        data-res="8"  onclick="setRes(8)">1/8</button>
+          <button class="radio-btn"        data-res="4"  onclick="setRes(4)">1/4</button>
+        </div>
+      </div>
+      <div class="hint">1/16 = finest step  |  1/8 = eighth note steps  |  1/4 = one note per beat</div>
+      <div class="row" style="padding-top:6px">
+        <span class="row-label">Instrument:</span>
+        <input type="number" id="instrument" min="0" max="47" value="0" style="width:55px">
+        <span style="color:var(--fg3); font-size:10px">(0 – 47)</span>
+      </div>
+      <div class="hint">Instrument slot assigned to all notes in the pattern (0 = first instrument)</div>
+
+      <div class="sep"></div>
+
+      <!-- Convert button -->
+      <div class="convert-section">
+        <button class="btn-primary" id="conv-btn" onclick="startConvert()">▶  CONVERT</button>
+        <div class="progress-lbl" id="progress-lbl"></div>
+      </div>
+
+    </div><!-- /left-panel -->
+
+    <!-- RIGHT: log -->
+    <div class="right-panel">
+      <div class="section-title">▸ LOG</div>
+      <div class="log-container">
+        <div class="log-box" id="log-box"></div>
+      </div>
+    </div><!-- /right-panel -->
+
+  </div><!-- /main-grid -->
+
+</div><!-- /app -->
+
+<!-- Help Modal -->
+<div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
+  <div class="modal">
+    <div class="modal-header">MIDI → MTP  |  Help</div>
+    <div class="modal-body">
+      <p class="mh">WORKFLOW</p>
+      <p>1. Add .mid files with + ADD (multiple selection supported).</p>
+      <p>2. Set the starting index (e.g. 01).</p>
+      <p class="mdim">   Each file is saved as pattern_NN.mtp with NN auto-incremented.</p>
+      <p>3. Choose Resolution and Instrument.</p>
+      <p>4. Press CONVERT — files are downloaded directly.</p>
+      <p>5. Copy the .mtp files to the SD card:<br>
+         <span class="mok">/projects/&lt;project_name&gt;/patterns/</span></p>
+      <br>
+      <p class="mh">RESOLUTION</p>
+      <p>Sets the minimum quantization step for notes:</p>
+      <p class="mok">  1/16  →  minimum step = sixteenth note  (default)</p>
+      <p>  1/8   →  minimum step = eighth note</p>
+      <p>  1/4   →  minimum step = quarter note</p>
+      <p class="mdim">Use 1/16 for most MIDI files.</p>
+      <br>
+      <p class="mh">INSTRUMENT</p>
+      <p>Instrument slot (0-47) assigned to all notes.</p>
+      <p class="mdim">Corresponds to instruments loaded in the project on the Polyend Tracker (slot 0 = first instrument).</p>
+      <br>
+      <p class="mh">CHORDS – CHORD SPREADING</p>
+      <p>When multiple notes land on the same step, they are spread across consecutive tracks, matching the Polyend Tracker firmware behaviour when receiving chords via MIDI IN.</p>
+      <br>
+      <p class="mdim">Example – C major chord (C4+E4+G4) on step 0:</p>
+      <p class="mok">  Track 0, step 0  →  G4  (highest voice)</p>
+      <p class="mok">  Track 1, step 0  →  E4</p>
+      <p class="mok">  Track 2, step 0  →  C4  (lowest voice)</p>
+      <br>
+      <p class="mdim">Maximum polyphony: 11 simultaneous voices.</p>
+      <br>
+      <p class="mh">MERGE MODE</p>
+      <p>Multiple MIDI files are combined into a single .mtp pattern. Each file is placed on a separate tracker track (0-7). Monophonic per track: if multiple notes fall on the same step, the first wins. Maximum 8 files per pattern.</p>
+      <br>
+      <p class="mh">MIDI FILE TYPES</p>
+      <p>Type 0 (single track):</p>
+      <p class="mdim">  Each MIDI channel = separate source for chord spreading.</p>
+      <p>Type 1 (multi track):</p>
+      <p class="mdim">  Each MIDI track = separate source.</p>
+      <br>
+      <p class="mh">PATTERN LENGTH</p>
+      <p>Calculated automatically and rounded up to the nearest multiple of 16: 16, 32, 64, 128 (max).</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeHelp()" style="padding:8px 24px">CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="file-input" accept=".mid,.midi" multiple style="display:none" onchange="onFileInputChange(event)">
+<a id="dl-link"></a>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────
+let midiFiles         = [];   // {file: File, name: string}
+let trackAssignments  = [];   // parallel to midiFiles (merge mode track index)
+let mode              = 'split';
+let resolution        = 16;   // 4, 8, 16
+let selectedFileIdx   = -1;
+let converting        = false;
+
+// ─────────────────────────────────────────────────────────────────
+// Constants mirroring midi_to_mtp.py
+// ─────────────────────────────────────────────────────────────────
+const TRACK_COUNT          = 11;
+const STEP_COUNT           = 128;
+const DEFAULT_PATTERN_LEN  = 32;
+const STEP_NOTE_EMPTY      = -1;
+const MERGE_TRACK_MAX      = 8;
+const FILE_TYPE_PATTERN    = 2;
+const SIZEOF_PATTERN       = 8492;
+const DEFAULT_SWING        = 50.0;
+
+// ─────────────────────────────────────────────────────────────────
+// UI helpers
+// ─────────────────────────────────────────────────────────────────
+function log(msg, cls='') {
+  const box = document.getElementById('log-box');
+  const span = document.createElement('span');
+  if (cls) span.className = 'log-' + cls;
+  span.textContent = msg + '\n';
+  box.appendChild(span);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setProgress(text, color='') {
+  const el = document.getElementById('progress-lbl');
+  el.textContent = text;
+  el.style.color = color || 'var(--fg2)';
+}
+
+function refreshListbox() {
+  const box = document.getElementById('file-list-box');
+  box.innerHTML = '';
+  midiFiles.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item' + (i === selectedFileIdx ? ' selected' : '');
+    let label;
+    if (mode === 'merge') {
+      const pIdx = Math.floor(i / MERGE_TRACK_MAX);
+      const tIdx = i % MERGE_TRACK_MAX;
+      label = ` [P${pIdx} T${trackAssignments[i]}]  ${f.name}`;
+    } else {
+      label = ` ${f.name}`;
+    }
+    div.textContent = label;
+    div.title = f.name;
+    div.addEventListener('click', () => selectFile(i));
+    box.appendChild(div);
+  });
+  updateFilesCount();
+}
+
+function updateFilesCount() {
+  const n = midiFiles.length;
+  const el = document.getElementById('files-count');
+  el.textContent = `${n} file${n !== 1 ? 's' : ''} selected`;
+  el.style.color = n > 0 ? 'var(--accent)' : 'var(--fg3)';
+}
+
+function selectFile(i) {
+  selectedFileIdx = i;
+  refreshListbox();
+  if (mode === 'merge' && i < trackAssignments.length) {
+    document.getElementById('track-sel').value = trackAssignments[i];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Mode / options
+// ─────────────────────────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-split').classList.toggle('active', m === 'split');
+  document.getElementById('btn-merge').classList.toggle('active', m === 'merge');
+  const mergeRow = document.getElementById('merge-row');
+  const hint     = document.getElementById('mode-hint');
+  if (m === 'merge') {
+    mergeRow.style.display = 'flex';
+    hint.innerHTML = '  Select a file in the list, change the track (0-7) and press ASSIGN<br>'
+                   + '  All files → one .mtp  |  max 8 files per pattern  |  monophonic per track';
+    log('Mode MERGE: all files → one .mtp pattern', 'acc');
+    log('  Assign each file to a track (0-7) using the selector.', 'info');
+  } else {
+    mergeRow.style.display = 'none';
+    hint.innerHTML = '  Each MIDI file becomes a separate .mtp pattern (pattern_01, _02 ...)<br>'
+                   + '  Chords: simultaneous notes are automatically spread across separate tracks';
+    log('Mode SEPARATE: each MIDI file → individual .mtp pattern', 'acc');
+  }
+  refreshListbox();
+}
+
+function setRes(r) {
+  resolution = r;
+  document.querySelectorAll('.radio-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.res) === r);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// File management
+// ─────────────────────────────────────────────────────────────────
+function addFiles() {
+  document.getElementById('file-input').click();
+}
+
+function onFileInputChange(e) {
+  const files = Array.from(e.target.files);
+  e.target.value = '';
+  let added = 0;
+  files.forEach(f => {
+    if (!midiFiles.find(x => x.name === f.name && x.file.size === f.size)) {
+      const autoTrack = midiFiles.length % MERGE_TRACK_MAX;
+      midiFiles.push({ file: f, name: f.name });
+      trackAssignments.push(autoTrack);
+      added++;
+    }
+  });
+  if (added) {
+    log(`Added ${added} file(s).`, 'acc');
+    if (mode === 'merge') {
+      const n = Math.ceil(midiFiles.length / MERGE_TRACK_MAX);
+      log(`  → ${midiFiles.length} files across ${n} pattern(s)`, 'info');
+    }
+  }
+  refreshListbox();
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  const items = Array.from(e.dataTransfer.files).filter(f =>
+    f.name.match(/\.(mid|midi)$/i)
+  );
+  if (items.length) {
+    // Simulate adding via the same logic
+    let added = 0;
+    items.forEach(f => {
+      if (!midiFiles.find(x => x.name === f.name && x.file.size === f.size)) {
+        const autoTrack = midiFiles.length % MERGE_TRACK_MAX;
+        midiFiles.push({ file: f, name: f.name });
+        trackAssignments.push(autoTrack);
+        added++;
+      }
+    });
+    if (added) log(`Added ${added} file(s) via drag & drop.`, 'acc');
+    refreshListbox();
+  }
+}
+
+function removeFile() {
+  if (selectedFileIdx < 0 || selectedFileIdx >= midiFiles.length) {
+    log('  Select a file first.', 'dim');
+    return;
+  }
+  const removed = midiFiles.splice(selectedFileIdx, 1)[0];
+  trackAssignments.splice(selectedFileIdx, 1);
+  log(`Removed: ${removed.name}`, 'dim');
+  selectedFileIdx = Math.min(selectedFileIdx, midiFiles.length - 1);
+  refreshListbox();
+}
+
+function clearFiles() {
+  midiFiles = [];
+  trackAssignments = [];
+  selectedFileIdx = -1;
+  refreshListbox();
+  log('File list cleared.', 'dim');
+}
+
+function assignTrack() {
+  if (selectedFileIdx < 0 || selectedFileIdx >= midiFiles.length) {
+    log('  Select a file from the list first.', 'dim');
+    return;
+  }
+  const t = parseInt(document.getElementById('track-sel').value);
+  trackAssignments[selectedFileIdx] = Math.max(0, Math.min(MERGE_TRACK_MAX - 1, t));
+  log(`  ${midiFiles[selectedFileIdx].name}  →  Track ${trackAssignments[selectedFileIdx]}`, 'acc');
+  refreshListbox();
+  // re-select same item
+  document.querySelectorAll('.file-item')[selectedFileIdx]?.classList.add('selected');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Help Modal
+// ─────────────────────────────────────────────────────────────────
+function openHelp()  { document.getElementById('help-modal').classList.add('open'); }
+function closeHelp() { document.getElementById('help-modal').classList.remove('open'); }
+
+// ─────────────────────────────────────────────────────────────────
+// MTP binary builder (port of midi_to_mtp.py)
+// ─────────────────────────────────────────────────────────────────
+
+function packStep(note, instrument,
+                  fx0t=0, fx0v=0, fx1t=0, fx1v=0) {
+  // 6 bytes: int8 note, uint8 instrument, uint8 fx0t, uint8 fx0v, uint8 fx1t, uint8 fx1v
+  const buf = new ArrayBuffer(6);
+  const dv  = new DataView(buf);
+  dv.setInt8(0, note);
+  dv.setUint8(1, instrument);
+  dv.setUint8(2, fx0t);
+  dv.setUint8(3, fx0v);
+  dv.setUint8(4, fx1t);
+  dv.setUint8(5, fx1v);
+  return new Uint8Array(buf);
+}
+
+function packTrack(length, steps) {
+  // 769 bytes: 1 byte length, 128 x 6 bytes steps
+  const out = new Uint8Array(769);
+  out[0] = Math.min(length, STEP_COUNT) - 1;
+  for (let i = 0; i < STEP_COUNT; i++) {
+    const s   = steps[i] || null;
+    const note  = s ? s.note  : STEP_NOTE_EMPTY;
+    const instr = s ? s.instr : 0;
+    const bytes = packStep(note, instr, 0, 0, 0, 0);
+    out.set(bytes, 1 + i * 6);
+  }
+  return out;
+}
+
+function packHeader() {
+  // 14 bytes
+  const buf = new ArrayBuffer(14);
+  const dv  = new DataView(buf);
+  // magic 'KS'
+  dv.setUint8(0, 0x4B); // 'K'
+  dv.setUint8(1, 0x53); // 'S'
+  // type uint16 LE = 2
+  dv.setUint16(2, FILE_TYPE_PATTERN, true);
+  // fwVersion[4]
+  dv.setUint8(4, 1); dv.setUint8(5, 1); dv.setUint8(6, 1); dv.setUint8(7, 1);
+  // fileStructureVersion[4]
+  dv.setUint8(8, 1); dv.setUint8(9, 1); dv.setUint8(10, 1); dv.setUint8(11, 1);
+  // size uint16 LE = 8492
+  dv.setUint16(12, SIZEOF_PATTERN, true);
+  return new Uint8Array(buf);
+}
+
+function crc32(buf) {
+  // Standard CRC-32 (polynomial 0xEDB88320)
+  let crc = 0xFFFFFFFF;
+  const table = crc32.table || (crc32.table = (() => {
+    const t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[i] = c;
+    }
+    return t;
+  })());
+  for (let i = 0; i < buf.length; i++) {
+    crc = table[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function buildMtp(tracksData, patternLength) {
+  const header  = packHeader();           // 14 bytes
+  const pad1    = new Uint8Array(2);      //  2 bytes
+  // tempo float32 LE = 100.0
+  const fTempo  = new Uint8Array(4);
+  new DataView(fTempo.buffer).setFloat32(0, 100.0, true);
+  // swing float32 LE = 50.0
+  const fSwing  = new Uint8Array(4);
+  new DataView(fSwing.buffer).setFloat32(0, DEFAULT_SWING, true);
+  const reserved = new Uint8Array(4);    //  4 bytes
+  const pad2     = new Uint8Array(1);    //  1 byte  (after tracks, before CRC)
+
+  const trackBytes = [];
+  for (let i = 0; i < TRACK_COUNT; i++) {
+    const td = i < tracksData.length ? tracksData[i] : null;
+    const len  = td ? (td.length || patternLength) : patternLength;
+    const stps = td ? (td.steps  || [])            : [];
+    trackBytes.push(packTrack(len, stps));
+  }
+
+  // Assemble payload (without CRC)
+  const payloadLen = 14 + 2 + 4 + 4 + 4 + TRACK_COUNT * 769 + 1; // = 8488
+  const payload = new Uint8Array(payloadLen);
+  let offset = 0;
+  const write = arr => { payload.set(arr, offset); offset += arr.length; };
+  write(header);
+  write(pad1);
+  write(fTempo);
+  write(fSwing);
+  write(reserved);
+  trackBytes.forEach(write);
+  write(pad2);
+
+  // CRC32 of payload
+  const crcVal = crc32(payload);
+  const full = new Uint8Array(SIZEOF_PATTERN);
+  full.set(payload);
+  const dv = new DataView(full.buffer);
+  dv.setUint32(payloadLen, crcVal, true);
+
+  return full;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MIDI parser (pure JS, no library needed)
+// Handles MIDI type 0 and type 1 files
+// ─────────────────────────────────────────────────────────────────
+
+function parseMidi(buffer) {
+  const dv  = new DataView(buffer);
+  const u8  = new Uint8Array(buffer);
+  let pos   = 0;
+
+  function readUint32() { const v = dv.getUint32(pos, false); pos += 4; return v; }
+  function readUint16() { const v = dv.getUint16(pos, false); pos += 2; return v; }
+  function readUint8()  { return u8[pos++]; }
+
+  function readVarLen() {
+    let val = 0;
+    let b;
+    do {
+      b = readUint8();
+      val = (val << 7) | (b & 0x7F);
+    } while (b & 0x80);
+    return val;
+  }
+
+  // Header chunk
+  const magic = readUint32();
+  if (magic !== 0x4D546864) throw new Error('Not a valid MIDI file (bad header magic)');
+  const headerLen = readUint32();
+  const midiType  = readUint16();
+  const numTracks = readUint16();
+  const ppqn      = readUint16();
+  pos = 8 + headerLen; // skip rest of header if any
+
+  const tracks = [];
+
+  for (let t = 0; t < numTracks; t++) {
+    const chunkMagic = readUint32();
+    if (chunkMagic !== 0x4D54726B) {
+      // Skip non-track chunk
+      const chunkLen = readUint32();
+      pos += chunkLen;
+      continue;
+    }
+    const chunkLen = readUint32();
+    const chunkEnd = pos + chunkLen;
+    const events   = [];
+    let   runningStatus = 0;
+
+    while (pos < chunkEnd) {
+      const delta = readVarLen();
+      let statusByte = u8[pos];
+
+      if (statusByte & 0x80) {
+        runningStatus = statusByte;
+        pos++;
+      }
+      // else running status
+
+      const status  = runningStatus & 0xF0;
+      const channel = runningStatus & 0x0F;
+
+      if (runningStatus === 0xFF) {
+        // Meta event
+        const metaType = readUint8();
+        const metaLen  = readVarLen();
+        pos += metaLen;
+        events.push({ delta, type: 'meta', metaType });
+      } else if (runningStatus === 0xF0 || runningStatus === 0xF7) {
+        // SysEx
+        const sysexLen = readVarLen();
+        pos += sysexLen;
+      } else if (status === 0x90) {
+        const note = readUint8();
+        const vel  = readUint8();
+        events.push({ delta, type: vel > 0 ? 'note_on' : 'note_off', channel, note, velocity: vel });
+      } else if (status === 0x80) {
+        const note = readUint8();
+        const vel  = readUint8();
+        events.push({ delta, type: 'note_off', channel, note, velocity: vel });
+      } else if (status === 0xA0) {
+        pos += 2; // aftertouch
+      } else if (status === 0xB0) {
+        pos += 2; // control change
+      } else if (status === 0xC0) {
+        pos += 1; // program change
+      } else if (status === 0xD0) {
+        pos += 1; // channel pressure
+      } else if (status === 0xE0) {
+        pos += 2; // pitch bend
+      } else {
+        // Unknown, skip
+        pos++;
+      }
+    }
+    pos = chunkEnd;
+    tracks.push(events);
+  }
+
+  return { type: midiType, ppqn, tracks };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MIDI → tracks_data conversion (port of midi_to_tracks in Python)
+// ─────────────────────────────────────────────────────────────────
+
+function roundPatternLength(maxStep) {
+  for (const l of [16, 32, 64, 128]) {
+    if (maxStep <= l) return l;
+  }
+  return STEP_COUNT;
+}
+
+function midiLengthInSteps(midi, ticksPerStep) {
+  if (!midi.tracks.length) return DEFAULT_PATTERN_LEN;
+  if (midi.type === 0) {
+    const total = midi.tracks[0].reduce((a, m) => a + m.delta, 0);
+    return Math.max(1, Math.floor(total / ticksPerStep));
+  } else {
+    const max = Math.max(...midi.tracks.map(t => t.reduce((a, m) => a + m.delta, 0)));
+    return Math.max(1, Math.floor(max / ticksPerStep));
+  }
+}
+
+function midiToTracks(midi, stepsPerBeat=4, defaultInstrument=0) {
+  const ppqn         = midi.ppqn;
+  const ticksPerStep = Math.max(1, Math.floor(ppqn / stepsPerBeat));
+
+  // Phase 1: collect notes
+  // stepSourceNotes: Map key=(step,srcIdx) -> [notes sorted desc]
+  const stepSourceNotes = new Map();
+
+  function addNote(srcIdx, step, note) {
+    if (step >= STEP_COUNT) return;
+    const key = `${step},${srcIdx}`;
+    if (!stepSourceNotes.has(key)) stepSourceNotes.set(key, []);
+    stepSourceNotes.get(key).push(note);
+  }
+
+  if (midi.type === 0) {
+    let absTick = 0;
+    for (const msg of midi.tracks[0]) {
+      absTick += msg.delta;
+      if (msg.type === 'note_on') {
+        addNote(msg.channel || 0, Math.floor(absTick / ticksPerStep), msg.note);
+      }
+    }
+  } else {
+    for (let srcIdx = 0; srcIdx < midi.tracks.length; srcIdx++) {
+      let absTick = 0;
+      for (const msg of midi.tracks[srcIdx]) {
+        absTick += msg.delta;
+        if (msg.type === 'note_on') {
+          addNote(srcIdx, Math.floor(absTick / ticksPerStep), msg.note);
+        }
+      }
+    }
+  }
+
+  if (stepSourceNotes.size === 0) {
+    return {
+      tracksData: Array.from({length: TRACK_COUNT}, () => ({
+        length: DEFAULT_PATTERN_LEN,
+        steps: Array(STEP_COUNT).fill(null).map(() => ({ note: STEP_NOTE_EMPTY, instr: 0 }))
+      })),
+      patternLength: DEFAULT_PATTERN_LEN,
+      warnings: ['No notes found in MIDI file']
+    };
+  }
+
+  // Sort each chord highest → lowest
+  for (const [, notes] of stepSourceNotes) notes.sort((a, b) => b - a);
+
+  // Phase 2: chord spreading
+  const stepOccupied = new Map();  // step -> Set of tracker track indices
+  const trackerRaw   = new Map();  // track_idx -> Map(step -> note)
+  let   skippedChords = 0;
+
+  // Sort keys by step
+  const sortedKeys = [...stepSourceNotes.keys()].sort((a, b) => {
+    const stepA = parseInt(a.split(',')[0]);
+    const stepB = parseInt(b.split(',')[0]);
+    return stepA - stepB;
+  });
+
+  for (const key of sortedKeys) {
+    const step  = parseInt(key.split(',')[0]);
+    const notes = stepSourceNotes.get(key);
+    if (!stepOccupied.has(step)) stepOccupied.set(step, new Set());
+
+    for (const noteVal of notes) {
+      let assigned = false;
+      for (let t = 0; t < TRACK_COUNT; t++) {
+        if (!stepOccupied.get(step).has(t)) {
+          stepOccupied.get(step).add(t);
+          if (!trackerRaw.has(t)) trackerRaw.set(t, new Map());
+          trackerRaw.get(t).set(step, Math.max(0, Math.min(120, noteVal)));
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) skippedChords++;
+    }
+  }
+
+  // Phase 3: pattern length
+  let lastNote = DEFAULT_PATTERN_LEN;
+  for (const [, stepsMap] of trackerRaw) {
+    for (const [s] of stepsMap) {
+      if (s + 1 > lastNote) lastNote = s + 1;
+    }
+  }
+  const fileSteps    = midiLengthInSteps(midi, ticksPerStep);
+  const patternLength = roundPatternLength(Math.max(lastNote, fileSteps));
+
+  // Phase 4: build tracksData
+  const tracksData = [];
+  for (let i = 0; i < TRACK_COUNT; i++) {
+    const stepsMap = trackerRaw.get(i) || new Map();
+    const steps = [];
+    for (let s = 0; s < STEP_COUNT; s++) {
+      if (stepsMap.has(s)) {
+        steps.push({ note: stepsMap.get(s), instr: defaultInstrument });
+      } else {
+        steps.push({ note: STEP_NOTE_EMPTY, instr: 0 });
+      }
+    }
+    tracksData.push({ length: patternLength, steps });
+  }
+
+  const warnings = [];
+  if (skippedChords > 0)
+    warnings.push(`${skippedChords} notes discarded (all ${TRACK_COUNT} tracks full)`);
+
+  return { tracksData, patternLength, warnings };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Merge mode: multiple MIDI files → single pattern
+// ─────────────────────────────────────────────────────────────────
+
+function mergeMidiFilesToTracks(assignments, stepsPerBeat=4) {
+  // assignments: [{midi, baseTrack, instrument, filename}]
+  const trackerRaw = new Map();  // track_idx -> Map(step -> [note, instr])
+  const logs = [];
+
+  for (const { midi, baseTrack, instrument, filename } of assignments) {
+    if (baseTrack >= MERGE_TRACK_MAX || baseTrack >= TRACK_COUNT) continue;
+
+    const ppqn         = midi.ppqn;
+    const ticksPerStep = Math.max(1, Math.floor(ppqn / stepsPerBeat));
+
+    if (!trackerRaw.has(baseTrack)) trackerRaw.set(baseTrack, new Map());
+
+    const stepNotes = new Map();
+
+    if (midi.type === 0) {
+      let absTick = 0;
+      for (const msg of midi.tracks[0]) {
+        absTick += msg.delta;
+        if (msg.type === 'note_on') {
+          const step = Math.floor(absTick / ticksPerStep);
+          if (step < STEP_COUNT && !stepNotes.has(step)) stepNotes.set(step, msg.note);
+        }
+      }
+    } else {
+      for (const track of midi.tracks) {
+        let absTick = 0;
+        for (const msg of track) {
+          absTick += msg.delta;
+          if (msg.type === 'note_on') {
+            const step = Math.floor(absTick / ticksPerStep);
+            if (step < STEP_COUNT && !stepNotes.has(step)) stepNotes.set(step, msg.note);
+          }
+        }
+      }
+    }
+
+    const trackMap = trackerRaw.get(baseTrack);
+    for (const [step, note] of stepNotes) {
+      if (!trackMap.has(step)) {
+        trackMap.set(step, [Math.max(0, Math.min(120, note)), instrument]);
+      }
+    }
+    logs.push({ filename, baseTrack, count: stepNotes.size });
+  }
+
+  // Pattern length
+  let lastNote = DEFAULT_PATTERN_LEN;
+  for (const [, stepsMap] of trackerRaw) {
+    for (const [s] of stepsMap) {
+      if (s + 1 > lastNote) lastNote = s + 1;
+    }
+  }
+  let maxFileSteps = 0;
+  for (const { midi } of assignments) {
+    const ppqn         = midi.ppqn;
+    const ticksPerStep = Math.max(1, Math.floor(ppqn / (assignments[0] ? stepsPerBeat : 4)));
+    const fs = midiLengthInSteps(midi, ticksPerStep);
+    if (fs > maxFileSteps) maxFileSteps = fs;
+  }
+  const patternLength = roundPatternLength(Math.max(lastNote, maxFileSteps));
+
+  const tracksData = [];
+  for (let i = 0; i < TRACK_COUNT; i++) {
+    const stepsMap = trackerRaw.get(i) || new Map();
+    const steps = [];
+    for (let s = 0; s < STEP_COUNT; s++) {
+      if (stepsMap.has(s)) {
+        const [note, instr] = stepsMap.get(s);
+        steps.push({ note, instr });
+      } else {
+        steps.push({ note: STEP_NOTE_EMPTY, instr: 0 });
+      }
+    }
+    tracksData.push({ length: patternLength, steps });
+  }
+
+  return { tracksData, patternLength, logs };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Download helper
+// ─────────────────────────────────────────────────────────────────
+
+function downloadBinary(data, filename) {
+  const blob = new Blob([data], { type: 'application/octet-stream' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.getElementById('dl-link');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Conversion
+// ─────────────────────────────────────────────────────────────────
+
+async function startConvert() {
+  if (converting) return;
+
+  if (!midiFiles.length) {
+    log('No files selected. Add at least one .mid file.', 'err');
+    return;
+  }
+
+  const startIdx  = parseInt(document.getElementById('start-index').value) || 1;
+  const instrVal  = Math.max(0, Math.min(47, parseInt(document.getElementById('instrument').value) || 0));
+  const stepsPerBeat = resolution / 4; // 16→4, 8→2, 4→1
+
+  converting = true;
+  document.getElementById('conv-btn').disabled = true;
+  document.getElementById('conv-btn').textContent = '◌  Converting…';
+
+  // Defer to let UI update
+  await new Promise(r => setTimeout(r, 20));
+
+  if (mode === 'merge') {
+    await convertMerge(startIdx, stepsPerBeat, instrVal);
+  } else {
+    await convertSplit(startIdx, stepsPerBeat, instrVal);
+  }
+
+  converting = false;
+  document.getElementById('conv-btn').disabled = false;
+  document.getElementById('conv-btn').textContent = '▶  CONVERT';
+}
+
+async function convertSplit(startIdx, stepsPerBeat, instrument) {
+  log(`\n── Converting ${midiFiles.length} file(s) ──────────────────`, 'acc');
+  let okCount = 0, errCount = 0;
+
+  for (let i = 0; i < midiFiles.length; i++) {
+    const f          = midiFiles[i];
+    const patternIdx = startIdx + i;
+    const outName    = `pattern_${String(patternIdx).padStart(2, '0')}.mtp`;
+    setProgress(`${i + 1}/${midiFiles.length}  ${f.name}`);
+
+    try {
+      const buf  = await f.file.arrayBuffer();
+      const midi = parseMidi(buf);
+      const { tracksData, patternLength, warnings } = midiToTracks(midi, stepsPerBeat, instrument);
+
+      warnings.forEach(w => log(`  ⚠  ${w}`, 'err'));
+
+      const mtp = buildMtp(tracksData, patternLength);
+
+      // Count used tracks
+      const used = tracksData.filter(td =>
+        td.steps.some(s => s.note !== STEP_NOTE_EMPTY)
+      ).length;
+
+      downloadBinary(mtp, outName);
+      // Small delay between downloads so browser doesn't block them
+      if (midiFiles.length > 1) await new Promise(r => setTimeout(r, 200));
+
+      log(`  ✓  ${f.name}  →  ${outName}  (${patternLength} steps, ${used} tracks)`, 'ok');
+      okCount++;
+    } catch(e) {
+      log(`  ✗  ${f.name}  →  ${e.message}`, 'err');
+      errCount++;
+    }
+  }
+
+  log(`\n── Done: ${okCount} OK  |  ${errCount} error(s) ──────────────`,
+      errCount === 0 ? 'acc' : 'err');
+
+  if (errCount === 0) {
+    setProgress(`Done: ${okCount} file(s) converted successfully.`, 'var(--ok)');
+  } else {
+    setProgress(`Completed with errors: ${okCount} OK  /  ${errCount} failed.`, 'var(--err)');
+  }
+}
+
+async function convertMerge(startIdx, stepsPerBeat, instrument) {
+  const nFiles    = midiFiles.length;
+  const nPatterns = Math.ceil(nFiles / MERGE_TRACK_MAX);
+
+  log(`\n── MERGE ${nFiles} file(s) → ${nPatterns} pattern(s) ──────────────`, 'acc');
+
+  // Load all MIDI files
+  const loaded = [];
+  let loadErr = 0;
+  for (let i = 0; i < midiFiles.length; i++) {
+    const f = midiFiles[i];
+    setProgress(`Loading ${i + 1}/${nFiles}  ${f.name}`);
+    try {
+      const buf  = await f.file.arrayBuffer();
+      const midi = parseMidi(buf);
+      loaded.push({ midi, name: f.name });
+    } catch(e) {
+      log(`  ✗  ${f.name}  →  ${e.message}`, 'err');
+      loaded.push(null);
+      loadErr++;
+    }
+  }
+  if (loadErr) log(`  ${loadErr} file(s) could not be loaded — continuing.`, 'err');
+
+  let okPatterns = 0, errPatterns = 0;
+
+  for (let chunkIdx = 0; chunkIdx < nPatterns; chunkIdx++) {
+    const chunkStart = chunkIdx * MERGE_TRACK_MAX;
+    const chunk      = loaded.slice(chunkStart, chunkStart + MERGE_TRACK_MAX);
+    const patIdx     = startIdx + chunkIdx;
+    const outName    = `pattern_${String(patIdx).padStart(2, '0')}.mtp`;
+
+    log(`\n  Pattern ${String(patIdx).padStart(2, '0')} (${chunk.length} track(s)):`, 'acc');
+
+    const assignments = [];
+    for (let localTrack = 0; localTrack < chunk.length; localTrack++) {
+      const entry = chunk[localTrack];
+      if (entry) {
+        assignments.push({ midi: entry.midi, baseTrack: localTrack, instrument, filename: entry.name });
+        log(`    ● ${entry.name}  →  Track ${localTrack}`, 'info');
+      } else {
+        const name = midiFiles[chunkStart + localTrack]?.name || '?';
+        log(`    ✗  ${name}  (skipped)`, 'err');
+      }
+    }
+
+    if (!assignments.length) {
+      log(`    No valid files in this chunk, pattern skipped.`, 'err');
+      errPatterns++;
+      continue;
+    }
+
+    try {
+      setProgress(`Pattern ${String(patIdx).padStart(2, '0')} – merging ${assignments.length} file(s)…`);
+      const { tracksData, patternLength, logs: mergeLogs } = mergeMidiFilesToTracks(assignments, stepsPerBeat);
+      const mtp  = buildMtp(tracksData, patternLength);
+      const used = tracksData.filter(td => td.steps.some(s => s.note !== STEP_NOTE_EMPTY)).length;
+
+      downloadBinary(mtp, outName);
+      if (nPatterns > 1) await new Promise(r => setTimeout(r, 200));
+
+      log(`    ✓  Saved: ${outName}  (${patternLength} steps, ${used} track(s) used)`, 'ok');
+      okPatterns++;
+    } catch(e) {
+      log(`    ✗  Error: ${e.message}`, 'err');
+      errPatterns++;
+    }
+  }
+
+  log(`\n── Done: ${okPatterns} pattern(s) OK  |  ${errPatterns} error(s) ──`,
+      errPatterns === 0 ? 'acc' : 'err');
+
+  if (errPatterns === 0) {
+    setProgress(`Done: ${okPatterns} pattern(s) converted successfully.`, 'var(--ok)');
+  } else {
+    setProgress(`Completed with errors: ${okPatterns} OK  /  ${errPatterns} failed.`, 'var(--err)');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Init: show welcome message
+// ─────────────────────────────────────────────────────────────────
+(function init() {
+  const lines = [
+    ['MIDI → MTP  |  Quick start', 'acc'],
+    ['─'.repeat(50), 'dim'],
+    ['', null],
+    ['1. Add one or more .mid files with + ADD', 'info'],
+    ['2. Set the starting index (e.g. 01)', 'info'],
+    ['   Files download to: pattern_01.mtp, pattern_02.mtp ...', 'dim'],
+    ['3. Choose resolution and instrument slot', 'info'],
+    ['4. Press CONVERT — files are downloaded automatically', 'info'],
+    ['5. Copy .mtp files to SD card:', 'info'],
+    ['   /projects/<name>/patterns/', 'dim'],
+    ['', null],
+    ['─'.repeat(50), 'dim'],
+    ['CHORDS – how chord spreading works:', 'acc'],
+    ['  Notes played simultaneously on the same step are', 'info'],
+    ['  distributed across consecutive tracker tracks,', 'info'],
+    ['  matching the Polyend Tracker firmware behaviour.', 'info'],
+    ['', null],
+    ['  Example: C4 + E4 + G4 on step 0:', 'dim'],
+    ['    track 0 → G4  (highest voice)', 'ok'],
+    ['    track 1 → E4', 'ok'],
+    ['    track 2 → C4  (lowest voice)', 'ok'],
+    ['', null],
+    ['  Max polyphony: 11 voices (11 tracks available)', 'dim'],
+    ['─'.repeat(50), 'dim'],
+  ];
+  lines.forEach(([text, cls]) => log(text, cls || ''));
+})();
+</script>
+</body>
+</html>
