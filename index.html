@@ -245,6 +245,29 @@
   /* ── Hidden download anchor ─────────────────── */
   #dl-link { display: none; }
 
+  /* ── Donate button ────────────────────────────── */
+  .donate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #0070BA;
+    color: #fff;
+    border: none;
+    padding: 6px 14px 6px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .donate-btn:hover  { background: #005EA6; transform: translateY(-1px); }
+  .donate-btn:active { transform: translateY(0); }
+  .donate-btn svg { flex-shrink: 0; }
+
   /* ── Responsive: mobile ─────────────────────── */
   @media (max-width: 767px) {
     html, body { overflow: auto; height: auto; }
@@ -264,6 +287,12 @@
     <div class="header">
       <span class="header-title">MIDI → MTP</span>
       <span class="header-sub">Polyend Tracker Pattern Converter</span>
+      <a class="donate-btn" href="https://paypal.me/simoneiannicelli" target="_blank" rel="noopener noreferrer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.254-.59 3.025-2.566 6.357-8.993 6.357H9.39c-.881 0-1.623.65-1.753 1.522L6.499 21.6l-.306 1.938h3.93c.77 0 1.426-.559 1.547-1.319l.065-.33.613-3.887.04-.213a1.567 1.567 0 0 1 1.547-1.32h.975c6.307 0 11.245-2.563 12.686-9.978.602-3.092-.008-5.677-2.374-7.574z" fill="white"/>
+        </svg>
+        Support this tool
+      </a>
       <button class="help-btn" onclick="openHelp()">?</button>
     </div>
   </div>
